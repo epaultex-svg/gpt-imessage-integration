@@ -16,6 +16,7 @@
     "merge": "node scripts/merge-config.mjs",
     "preflight": "node scripts/preflight.mjs",
     "probe": "node scripts/probe.mjs",
+    "resolve-target": "node scripts/resolve-target.mjs",
     "smoke": "node scripts/live-smoke.mjs",
     "validate": "node scripts/validate-config.mjs",
     "test": "node --test"
