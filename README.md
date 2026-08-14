@@ -121,6 +121,27 @@ error codes; it never prints chat fields, message content, or handles. If
 `FULL_DISK_ACCESS_REQUIRED` appears, grant Full Disk Access to the terminal or
 agent host running preflight, then rerun it.
 
+Preview one allowlisted live transport smoke without sending:
+
+```bash
+export IMESSAGE_TEST_RECIPIENT="+15555550123"
+export IMESSAGE_TEST_ALLOWLIST="+15555550123,tester@example.net"
+npm run smoke
+```
+
+Sending requires both an explicit flag and exact confirmation token:
+
+```bash
+export IMESSAGE_TEST_CONFIRM="SEND_ONE_TEST_MESSAGE"
+npm run smoke -- --send
+```
+
+Smoke sends one fixed, UUID-tagged `TEST:` message over iMessage with SMS fallback
+disabled, then verifies exactly one outgoing database row. It never accepts a
+custom body, retries, searches for alternate recipients, or prints recipient,
+body, message GUID, CLI diagnostics, or database fields. Any uncertain send stops
+without verification or retry.
+
 ```bash
 npm test
 ```
