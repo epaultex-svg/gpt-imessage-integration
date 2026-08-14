@@ -86,6 +86,26 @@ The output is intentionally a complete, narrow baseline:
 Example values above are documentation only. Validator rejects placeholder values
 if they appear in a managed patch.
 
+## Configure agent MCP access
+
+Preview cross-agent MCP registration without changing Codex or Claude settings:
+
+```bash
+npm run configure-agents
+```
+
+Apply only missing registrations after reviewing the fixed-status output:
+
+```bash
+npm run configure-agents -- --apply
+```
+
+The configurator resolves the absolute OpenClaw executable and registers its MCP
+server with Codex and Claude user scope. Exact existing registrations are no-ops.
+Conflicting registrations fail closed: they are never removed or overwritten.
+Output contains status and error codes only, never commands, paths, environment
+values, CLI diagnostics, configuration, or secrets.
+
 ## Verify
 
 Run privacy-safe transport checks before applying configuration:
