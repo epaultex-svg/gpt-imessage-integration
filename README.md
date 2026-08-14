@@ -88,6 +88,19 @@ if they appear in a managed patch.
 
 ## Verify
 
+Run privacy-safe transport checks before applying configuration:
+
+```bash
+npm run preflight
+```
+
+Preflight verifies macOS, pinned OpenClaw/`imsg` versions, OpenClaw's Node engine,
+SIP, `imsg` basic mode, bundled `@openclaw/imessage`, and read access to one chat
+database row. Output contains only pass/fail status, row count, and actionable
+error codes; it never prints chat fields, message content, or handles. If
+`FULL_DISK_ACCESS_REQUIRED` appears, grant Full Disk Access to the terminal or
+agent host running preflight, then rerun it.
+
 ```bash
 npm test
 ```
