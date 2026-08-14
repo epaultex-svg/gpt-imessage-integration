@@ -132,6 +132,32 @@ test("bad environment and unsafe config fail before commands or writes", async (
   assert.equal(state.writes, 0);
 });
 
+test("activation carries exact optional handles and rejects malformed extras before mutation", async () => {
+  const extraHandle = "second-person@real-domain.test";
+  const { state, options } = harness();
+  const result = await activateChannel({
+    ...options,
+    apply: true,
+    env: { ...SAFE_ENV, IMESSAGE_EXTRA_ALLOW_FROM: extraHandle },
+  });
+  assert.equal(result.status, "activated");
+  assert.deepEqual(state.current.channels.imessage.allowFrom, [
+    SAFE_ENV.PAUL_IMESSAGE_HANDLE,
+    extraHandle,
+  ]);
+  assert.equal(JSON.stringify(result).includes(extraHandle), false);
+
+  const invalid = harness();
+  const blocked = await activateChannel({
+    ...invalid.options,
+    apply: true,
+    env: { ...SAFE_ENV, IMESSAGE_EXTRA_ALLOW_FROM: "*" },
+  });
+  assert.deepEqual(blocked.errorCodes, ["ACTIVATION_ENV_INVALID"]);
+  assert.equal(invalid.state.writes, 0);
+  assert.deepEqual(invalid.state.calls, []);
+});
+
 test("blocked preflight causes zero mutation", async () => {
   const { state, options } = harness({ preflight: "blocked" });
   const result = await activateChannel({ ...options, apply: true });
