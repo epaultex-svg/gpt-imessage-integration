@@ -34,6 +34,8 @@ serve/funnel, or cloud message store is introduced by this repository.
 - Mutating activation creates a backup and rolls back on validation/plugin/restart failure.
 - Live smoke accepts no custom body, disables SMS fallback, sends at most once,
   never retries an uncertain result, and verifies one exact outgoing row.
+- Agent E2E runs an isolated non-delivering agent turn first, requires a byte-exact
+  fixed response, then permits one explicit OpenClaw iMessage delivery.
 - Privacy-safe commands emit fixed statuses/codes, not handles, paths, config,
   account IDs, message fields, or raw diagnostics.
 
@@ -154,6 +156,11 @@ Required values:
 | `IMESSAGE_TEST_RECIPIENT` | Exact smoke-test recipient |
 | `IMESSAGE_TEST_ALLOWLIST` | Comma-separated smoke recipients; target must match exactly |
 | `IMESSAGE_TEST_CONFIRM` | Exact one-send confirmation; leave unset except deliberate send |
+| `OPENCLAW_CLI_PATH` | Absolute path to pinned OpenClaw executable |
+| `OPENCLAW_E2E_MODEL` | Explicit configured provider/model tested for agent E2E |
+| `IMESSAGE_E2E_RECIPIENT` | Exact direct recipient for agent automation E2E |
+| `IMESSAGE_E2E_ALLOWLIST` | Separate comma-separated E2E recipient allowlist |
+| `IMESSAGE_E2E_CONFIRM` | Distinct E2E one-send confirmation; normally unset |
 
 Never commit `.env.local`.
 
@@ -235,6 +242,32 @@ unset IMESSAGE_TEST_CONFIRM
 Message starts with `TEST:`, includes generated correlation UUID, and says no
 response is needed. Send goes through iMessage only with SMS fallback disabled.
 
+### 7. Verify agent-to-iMessage automation end to end
+
+Dry-run validates separate E2E recipient, allowlist, OpenClaw/`imsg` paths,
+Messages DB path, and explicit provider/model without running agent or sending.
+`openrouter/auto` in `.env.example` is example only; choose a configured model
+already proven by a non-delivering `openclaw agent --model <provider/model>` run:
+
+```bash
+npm run e2e
+```
+
+After readiness and direct smoke pass, explicitly allow one fixed E2E delivery:
+
+```bash
+export IMESSAGE_E2E_CONFIRM="SEND_ONE_AGENT_E2E_MESSAGE"
+npm run e2e -- --send
+unset IMESSAGE_E2E_CONFIRM
+```
+
+Harness creates unique isolated session key, asks agent for one exact fixed
+`TEST:` response without `--deliver`, rejects any extra or changed byte, sends
+accepted response once through `openclaw message send`, then requires exactly one
+matching outgoing direct-recipient row from pinned `imsg`/`chat.db`. Failures,
+timeouts, and uncertain outcomes never retry. The delivery target is explicitly
+service-qualified as `imessage:` so SMS fallback is unavailable.
+
 ## Rollback and backups
 
 Activation writes sibling backup named
@@ -262,6 +295,8 @@ backup into public issue.
 | `npm run probe` | No | Verify live channel readiness |
 | `npm run smoke` | No | Validate one-send guardrails |
 | `npm run smoke -- --send` | Sends once | Send and verify fixed test message |
+| `npm run e2e` | No | Validate guarded agent automation E2E inputs |
+| `npm run e2e -- --send` | Sends once | Run agent gate, send exact response, verify DB row |
 
 ## Public repository privacy
 
@@ -283,6 +318,8 @@ these scripts may still reveal local paths.
 - OpenClaw config must be strict JSON; commented JSON5 is refused.
 - MCP configuration supports Codex and Claude CLI clients only.
 - Smoke sends fixed text only, once, to exact allowlisted direct recipient.
+- E2E depends on configured `main` agent/model provider and accepts one exact text
+  payload only; it does not retry agent turns or message delivery.
 - Scripts do not install permissions, disable SIP, send arbitrary content, or
   automatically resolve conflicting MCP/config state.
 
