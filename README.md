@@ -147,6 +147,19 @@ error codes; it never prints chat fields, message content, or handles. If
 `FULL_DISK_ACCESS_REQUIRED` appears, grant Full Disk Access to the terminal or
 agent host running preflight, then rerun it.
 
+After activation, verify configured policy and live read-only readiness:
+
+```bash
+export OPENCLAW_CONFIG_PATH="$HOME/.openclaw/openclaw.json"
+npm run probe
+```
+
+Probe sequentially checks strict managed policy, OpenClaw config validity, bundled
+iMessage plugin activation, gateway health, and one running channel account. It
+does not mutate config or send messages. Output contains fixed check statuses and
+error codes only—never handles, paths, config, diagnostics, timestamps, account
+IDs, or probe payloads.
+
 Preview one allowlisted live transport smoke without sending:
 
 ```bash
