@@ -10,6 +10,7 @@
   "scripts": {
     "generate": "node scripts/generate-config.mjs",
     "merge": "node scripts/merge-config.mjs",
+    "preflight": "node scripts/preflight.mjs",
     "validate": "node scripts/validate-config.mjs",
     "test": "node --test"
   }
