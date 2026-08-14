@@ -6,7 +6,7 @@ configuration without committing phone numbers, Apple ID emails, or local paths.
 
 ## Safety profile
 
-- OpenClaw gateway binds only to loopback.
+- OpenClaw gateway binds only to loopback; Tailscale serving is forced off.
 - Direct messages require an exact handle allowlist.
 - Group messages are disabled.
 - iMessage-triggered configuration writes are disabled.
@@ -67,7 +67,11 @@ The output is intentionally a complete, narrow baseline:
 
 ```json
 {
-  "gateway": { "mode": "local", "bind": "loopback" },
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback",
+    "tailscale": { "mode": "off" }
+  },
   "channels": {
     "imessage": {
       "enabled": true,
@@ -105,6 +109,28 @@ server with Codex and Claude user scope. Exact existing registrations are no-ops
 Conflicting registrations fail closed: they are never removed or overwritten.
 Output contains status and error codes only, never commands, paths, environment
 values, CLI diagnostics, configuration, or secrets.
+
+## Activate iMessage channel
+
+Set `OPENCLAW_CONFIG_PATH` to an existing absolute OpenClaw JSON config, alongside
+the three configuration variables above. Preview input and merge safety with no
+commands or writes:
+
+```bash
+npm run activate
+```
+
+Apply transactionally after review:
+
+```bash
+npm run activate -- --apply
+```
+
+Apply requires a passing transport preflight, preserves unrelated configuration,
+creates a backup, validates before and after enabling the iMessage plugin, then
+restarts the gateway. Any post-mutation failure atomically restores the backup
+and performs one recovery restart. Output contains fixed statuses, error codes,
+and steps only; it never prints handles, paths, config, or diagnostics.
 
 ## Verify
 

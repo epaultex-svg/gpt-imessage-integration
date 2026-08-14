@@ -28,11 +28,13 @@ export function mergeManagedPatch(existing, patch) {
 
 export async function applyManagedPatch(configPath, patchPath, now = new Date()) {
   if (!path.isAbsolute(configPath)) throw new Error("--config must resolve to an absolute path");
-  if (!path.isAbsolute(patchPath)) throw new Error("--patch must resolve to an absolute path");
+  if (typeof patchPath === "string" && !path.isAbsolute(patchPath)) {
+    throw new Error("--patch must resolve to an absolute path");
+  }
 
-  const [existingRaw, patchRaw, configStat] = await Promise.all([
+  const [existingRaw, patchValue, configStat] = await Promise.all([
     readFile(configPath, "utf8"),
-    readFile(patchPath, "utf8"),
+    typeof patchPath === "string" ? readFile(patchPath, "utf8") : structuredClone(patchPath),
     stat(configPath),
   ]);
 
@@ -43,10 +45,14 @@ export async function applyManagedPatch(configPath, patchPath, now = new Date())
   } catch (error) {
     throw new Error(`Existing config must be strict JSON; refusing lossy rewrite: ${error.message}`);
   }
-  try {
-    patch = JSON.parse(patchRaw);
-  } catch (error) {
-    throw new Error(`Patch must be strict JSON: ${error.message}`);
+  if (typeof patchValue === "string") {
+    try {
+      patch = JSON.parse(patchValue);
+    } catch (error) {
+      throw new Error(`Patch must be strict JSON: ${error.message}`);
+    }
+  } else {
+    patch = patchValue;
   }
 
   const merged = mergeManagedPatch(existing, patch);
@@ -70,4 +76,21 @@ export async function applyManagedPatch(configPath, patchPath, now = new Date())
   }
 
   return { backupPath, configPath, merged };
+}
+
+export async function restoreManagedBackup(configPath, backupPath) {
+  if (!path.isAbsolute(configPath) || !path.isAbsolute(backupPath)) {
+    throw new Error("config and backup paths must be absolute");
+  }
+  const backupStat = await stat(backupPath);
+  const temporaryPath = `${configPath}.rollback.${process.pid}.${randomUUID()}`;
+  try {
+    await copyFile(backupPath, temporaryPath, constants.COPYFILE_EXCL);
+    await chmod(temporaryPath, backupStat.mode & 0o777);
+    await rename(temporaryPath, configPath);
+  } catch (error) {
+    await rm(temporaryPath, { force: true });
+    throw new Error(`Rollback restore failed: ${error.message}`);
+  }
+  return { configPath, backupPath };
 }
