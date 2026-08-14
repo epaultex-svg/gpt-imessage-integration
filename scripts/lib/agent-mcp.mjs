@@ -110,6 +110,10 @@ function claudeFields(stdout) {
       fields.set(currentField, (match[2] ?? "").trim());
       continue;
     }
+    if (currentField === "environment" && rawLine.trim() && /^\S/.test(rawLine)) {
+      currentField = null;
+      continue;
+    }
     if (currentField === "environment" && rawLine.trim()) {
       fields.set("environment", `${fields.get("environment")}\n${rawLine.trim()}`.trim());
     }

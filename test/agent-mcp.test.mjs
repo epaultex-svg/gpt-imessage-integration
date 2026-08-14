@@ -145,6 +145,32 @@ test("exact existing registrations are no-ops", async () => {
   assert.equal(runner.calls.length, 2);
 });
 
+test("Claude removal footer does not become an environment value", async () => {
+  const claude = {
+    exitCode: 0,
+    stdout: [
+      "openclaw:",
+      "  Scope: User config (available in all your projects)",
+      "  Status: ✘ Failed to connect",
+      "  Issue: -32000: MCP error -32000: Connection closed",
+      "  Type: stdio",
+      `  Command: ${OPENCLAW_PATH}`,
+      "  Args: mcp serve --claude-channel-mode on",
+      "  Environment:",
+      "",
+      "To remove this server, run: claude mcp remove openclaw -s user",
+    ].join("\n"),
+    stderr: "",
+  };
+  const runner = fakeRunner({ codex: exactCodex(), claude });
+  const result = await configureAgentMcp({ apply: true, runner });
+
+  assert.equal(result.status, "ready");
+  assert.deepEqual(result.agents.claude, { status: "noop" });
+  assert.equal(runner.calls.length, 2);
+  assert.equal(JSON.stringify(result).includes("claude mcp remove"), false);
+});
+
 test("existing conflict fails closed and prevents all adds", async () => {
   const conflict = exactCodex("/tmp/different-openclaw");
   const runner = fakeRunner({ codex: conflict });
