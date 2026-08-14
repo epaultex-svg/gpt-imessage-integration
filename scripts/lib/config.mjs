@@ -23,7 +23,8 @@ const SECRET_VALUE_PATTERNS = [
 ];
 
 const EXPECTED_TOP_LEVEL_KEYS = ["channels", "gateway"];
-const EXPECTED_GATEWAY_KEYS = ["bind", "mode"];
+const EXPECTED_GATEWAY_KEYS = ["bind", "mode", "tailscale"];
+const EXPECTED_TAILSCALE_KEYS = ["mode"];
 const EXPECTED_CHANNEL_KEYS = ["imessage"];
 const EXPECTED_IMESSAGE_KEYS = [
   "allowFrom",
@@ -76,10 +77,15 @@ export function validateConfig(config) {
   }
 
   if (!sameKeys(config?.gateway, EXPECTED_GATEWAY_KEYS)) {
-    errors.push("gateway must contain only mode and bind");
+    errors.push("gateway must contain exactly mode, bind, and tailscale");
   } else {
     if (config.gateway.mode !== "local") errors.push('gateway.mode must be "local"');
     if (config.gateway.bind !== "loopback") errors.push('gateway.bind must be "loopback"');
+  }
+  if (!sameKeys(config?.gateway?.tailscale, EXPECTED_TAILSCALE_KEYS)) {
+    errors.push("gateway.tailscale must contain exactly mode");
+  } else if (config.gateway.tailscale.mode !== "off") {
+    errors.push('gateway.tailscale.mode must be "off"');
   }
 
   if (!sameKeys(config?.channels, EXPECTED_CHANNEL_KEYS)) {
@@ -162,6 +168,7 @@ export function buildConfig(env) {
     gateway: {
       mode: "local",
       bind: "loopback",
+      tailscale: { mode: "off" },
     },
     channels: {
       imessage: {

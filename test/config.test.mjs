@@ -3,7 +3,11 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promis
 import path from "node:path";
 import test from "node:test";
 import { buildConfig, validateConfig } from "../scripts/lib/config.mjs";
-import { applyManagedPatch, mergeManagedPatch } from "../scripts/lib/patch.mjs";
+import {
+  applyManagedPatch,
+  mergeManagedPatch,
+  restoreManagedBackup,
+} from "../scripts/lib/patch.mjs";
 
 const SAFE_ENV = {
   PAUL_IMESSAGE_HANDLE: "+14155550101",
@@ -18,7 +22,7 @@ function safeConfig() {
 
 test("generator creates strict local-only allowlisted configuration", () => {
   assert.deepEqual(safeConfig(), {
-    gateway: { mode: "local", bind: "loopback" },
+    gateway: { mode: "local", bind: "loopback", tailscale: { mode: "off" } },
     channels: {
       imessage: {
         enabled: true,
@@ -91,6 +95,20 @@ test("validator rejects config writes and non-loopback gateway exposure", () => 
   assert.match(validateConfig(exposed).join("\n"), /gateway.bind must be "loopback"/);
 });
 
+test("validator requires exact disabled Tailscale exposure", () => {
+  const missing = safeConfig();
+  delete missing.gateway.tailscale;
+  assert.match(validateConfig(missing).join("\n"), /gateway.tailscale must contain exactly mode/);
+
+  const enabled = safeConfig();
+  enabled.gateway.tailscale.mode = "serve";
+  assert.match(validateConfig(enabled).join("\n"), /gateway.tailscale.mode must be "off"/);
+
+  const extra = safeConfig();
+  extra.gateway.tailscale.hostname = "private-host";
+  assert.match(validateConfig(extra).join("\n"), /gateway.tailscale must contain exactly mode/);
+});
+
 test("validator rejects secret-bearing keys and secret-like values", () => {
   const secretKey = safeConfig();
   secretKey.gateway.token = "not-even-a-real-token";
@@ -111,7 +129,7 @@ test("validator rejects unknown fields so placeholders cannot masquerade as live
 
 test("managed merge preserves unrelated OpenClaw settings", () => {
   const existing = {
-    gateway: { port: 18789, auth: { mode: "token" } },
+    gateway: { port: 18789, auth: { mode: "token" }, tailscale: { mode: "serve" } },
     channels: {
       slack: { enabled: false },
       imessage: { dmPolicy: "open", allowFrom: ["*"] },
@@ -124,6 +142,7 @@ test("managed merge preserves unrelated OpenClaw settings", () => {
   assert.deepEqual(merged.channels.slack, existing.channels.slack);
   assert.equal(merged.gateway.port, 18789);
   assert.deepEqual(merged.gateway.auth, { mode: "token" });
+  assert.deepEqual(merged.gateway.tailscale, { mode: "off" });
   assert.deepEqual(merged.channels.imessage, safeConfig().channels.imessage);
   assert.notEqual(merged.channels.imessage, existing.channels.imessage);
 });
@@ -135,11 +154,12 @@ test("file apply creates exact backup before atomic managed merge", async () => 
     const configPath = path.join(directory, "openclaw.json");
     const patchPath = path.join(directory, "patch.json");
     const existing = {
-      gateway: { port: 18789 },
+      gateway: { port: 18789, tailscale: { mode: "funnel" } },
       channels: { slack: { enabled: false } },
       agents: { defaults: { workspace: "/Users/operator/workspace" } },
     };
-    await writeFile(configPath, `${JSON.stringify(existing)}\n`, { mode: 0o600 });
+    const existingRaw = `${JSON.stringify(existing)}\n`;
+    await writeFile(configPath, existingRaw, { mode: 0o600 });
     await writeFile(patchPath, `${JSON.stringify(safeConfig())}\n`, { mode: 0o600 });
 
     const result = await applyManagedPatch(configPath, patchPath, new Date("2026-08-13T12:00:00.000Z"));
@@ -150,10 +170,16 @@ test("file apply creates exact backup before atomic managed merge", async () => 
     assert.deepEqual(applied.channels.slack, existing.channels.slack);
     assert.deepEqual(applied.channels.imessage, safeConfig().channels.imessage);
     assert.equal(applied.gateway.port, 18789);
+    assert.deepEqual(applied.gateway.tailscale, { mode: "off" });
 
     const names = await readdir(directory);
     assert.equal(names.filter((name) => name.includes(".backup.")).length, 1);
     assert.equal(names.filter((name) => name.includes(".tmp.")).length, 0);
+
+    await restoreManagedBackup(configPath, result.backupPath);
+    assert.equal(await readFile(configPath, "utf8"), existingRaw);
+    assert.equal(await readFile(result.backupPath, "utf8"), existingRaw);
+    assert.equal((await readdir(directory)).filter((name) => name.includes(".rollback.")).length, 0);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
