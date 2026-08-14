@@ -152,6 +152,7 @@ Required values:
 | `IMESSAGE_EXTRA_ALLOW_FROM` | Optional comma-separated exact additional handles |
 | `IMSG_CLI_PATH` | Absolute path to pinned `imsg` executable |
 | `IMESSAGE_DB_PATH` | Absolute path to local Messages `chat.db` |
+| `IMESSAGE_TARGET_CONTACT_NAME` | Exact contact/display name used for private target resolution |
 | `OPENCLAW_CONFIG_PATH` | Absolute path to existing strict-JSON OpenClaw config |
 | `IMESSAGE_TEST_RECIPIENT` | Exact smoke-test recipient |
 | `IMESSAGE_TEST_ALLOWLIST` | Comma-separated smoke recipients; target must match exactly |
@@ -178,7 +179,31 @@ Checks macOS, Node/OpenClaw/`imsg` pins, SIP, basic mode, bundled iMessage plugi
 and read access to one chat row. `FULL_DISK_ACCESS_REQUIRED` means parent process
 still cannot read `chat.db`.
 
-### 2. Configure cross-agent MCP
+### 2. Resolve the private test target
+
+After Full Disk Access works, resolve one exact direct iMessage chat without
+printing its name, handle, database path, or chat fields:
+
+```bash
+npm run resolve-target
+npm run resolve-target -- --write
+source .local/imessage-test-target.env
+```
+
+The default command only reads the pinned chat listing. `--write` atomically
+creates a mode-`0600`, Git-ignored file containing shell-quoted exports for the
+activation, smoke, and E2E recipient variables. Existing different content is
+never overwritten. An optional output must remain beneath `.local/`, for example
+`npm run resolve-target -- --write --output .local/targets/test.env`.
+
+Resolution requires exactly one normalized contact/display-name match for a
+direct `iMessage` service chat and a valid E.164 or email identifier. Duplicate
+rows with the same exact identifier are deduplicated; distinct identifiers fail
+as ambiguous. The script uses only chat fields returned by pinned `imsg`, invokes
+no AppleScript or Contacts command, and never emits contact data. It does not
+configure OpenClaw or send.
+
+### 3. Configure cross-agent MCP
 
 Preview, then apply missing registrations:
 
@@ -191,7 +216,7 @@ Codex registration runs OpenClaw MCP with `--claude-channel-mode off`; Claude us
 scope uses `--claude-channel-mode on`. Exact existing entries are no-ops. Any
 conflict fails closed and is never removed or overwritten.
 
-### 3. Generate managed configuration
+### 4. Generate managed configuration
 
 ```bash
 npm run generate
@@ -201,7 +226,7 @@ npm run validate -- .local/openclaw.imessage.patch.json
 Generated patch contains only managed gateway and iMessage channel policy. It is
 not a full OpenClaw replacement.
 
-### 4. Activate channel transactionally
+### 5. Activate channel transactionally
 
 Preview merge safety, then apply:
 
@@ -214,7 +239,7 @@ Apply repeats privacy-safe preflight, backs up existing config, merges managed
 gateway/iMessage fields, validates, enables bundled plugin, validates again, and
 restarts gateway. Unrelated OpenClaw settings remain intact.
 
-### 5. Probe readiness
+### 6. Probe readiness
 
 ```bash
 npm run probe
@@ -223,7 +248,7 @@ npm run probe
 Read-only probe requires policy, config, plugin, gateway, channel, and exactly one
 running iMessage account to pass. It sends nothing.
 
-### 6. Smoke-test one message
+### 7. Smoke-test one message
 
 Dry-run validates recipient and allowlist without invoking `imsg`:
 
@@ -242,7 +267,7 @@ unset IMESSAGE_TEST_CONFIRM
 Message starts with `TEST:`, includes generated correlation UUID, and says no
 response is needed. Send goes through iMessage only with SMS fallback disabled.
 
-### 7. Verify agent-to-iMessage automation end to end
+### 8. Verify agent-to-iMessage automation end to end
 
 Dry-run validates separate E2E recipient, allowlist, OpenClaw/`imsg` paths,
 Messages DB path, and explicit provider/model without running agent or sending.
@@ -287,6 +312,8 @@ backup into public issue.
 | `npm test` | No | Run Node built-in test suite |
 | `npm run check` | No | Syntax-check every `scripts/**/*.mjs` and `test/**/*.mjs` |
 | `npm run preflight` | No | Verify host transport prerequisites |
+| `npm run resolve-target` | No | Privately validate one exact direct iMessage target |
+| `npm run resolve-target -- --write` | Writes `.local/` | Create protected recipient exports without overwrite |
 | `npm run configure-agents` | No | Preview Codex/Claude MCP registration |
 | `npm run configure-agents -- --apply` | Yes | Add only absent MCP registrations |
 | `npm run generate` | Writes `.local/` | Generate managed patch |
