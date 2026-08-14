@@ -106,6 +106,7 @@ export async function activateChannel({
   try {
     patch = buildConfig({
       PAUL_IMESSAGE_HANDLE: env.PAUL_IMESSAGE_HANDLE,
+      IMESSAGE_EXTRA_ALLOW_FROM: env.IMESSAGE_EXTRA_ALLOW_FROM,
       IMSG_CLI_PATH: env.IMSG_CLI_PATH,
       IMESSAGE_DB_PATH: env.IMESSAGE_DB_PATH,
     });
